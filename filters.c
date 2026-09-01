@@ -105,7 +105,6 @@ int main(int argc, char* argv[])
 }
 
 
-// Convert image to grayscale
 void grayscale(int height, int width, px image[height][width])
 {
     for (int i = 0; i < height; i++)
@@ -124,8 +123,6 @@ void grayscale(int height, int width, px image[height][width])
 }
 
 
-
-// Reflect
 void reflect(int height, int width, px image[height][width])
 {
     for (int i = 0; i < height; i++)
@@ -137,6 +134,57 @@ void reflect(int height, int width, px image[height][width])
             image[i][width - j - 1] = tmp;
         }
     }
+
+    return;
+}
+
+
+
+void blur(int height, int width, px image[height][width])
+{
+    px* tmp_1d = malloc(width * height * sizeof(px));
+    if(tmp_1d == NULL)
+    {
+        printf("blur filter error\n");
+        return;
+    }
+
+    px (*tmp)[width] = (px(*)[width]) tmp_1d;
+
+    for (int i = 0; i < height; i++)
+    {
+        for (int j = 0; j < width; j++) // for each pixel
+        {
+            int np_blue = 0, np_green = 0, np_red = 0;
+            int c = 0; // counts number of adjacent pixles
+            for(int k = -1; k <= 1; k++)
+            {
+                for (int l = -1; l <= 1; l++) // for each adjacent pixel p[i+1][j] p[i-1][j] p[i+1][j+1] ... 
+                {
+                    if(i + k >= 0 && i + k <= height - 1 && j + l >= 0 && j + l <= width - 1) // verify we are in bound so we don't get p[-1]
+                    {
+                        np_red += image[i + k][j + l].Red ; // calculattig new pixel colors
+                        np_blue += image[i + k][j + l].Blue;
+                        np_green += image[i + k][j + l].Green;
+                        c++; // counter 
+                    }
+                }
+            }
+        tmp[i][j].Red = round(np_red / (float) c);
+        tmp[i][j].Blue = round(np_blue / (float) c);
+        tmp[i][j].Green = round(np_green / (float) c);
+        }
+    }
+
+    for (int i = 0; i < height; i++)
+    {
+        for (int j = 0; j < width; j++)
+        {
+            image[i][j] = tmp[i][j];
+        }
+    }
+
+    free(tmp_1d);
 
     return;
 }
