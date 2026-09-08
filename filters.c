@@ -10,14 +10,13 @@ typedef struct // pixel data structure
 }
 px;
 
-void cpyheader(FILE* out, FILE* photo); // copies 54 bytes of meta data
-int* get_dimentions(FILE* photo); // gets heights and width located in the header
-px* get_image(FILE* photo, int height, int width); // get the pixles matrix
-void cpy_image(FILE* out, px* image, int height, int width); // after applying the filter we copy the image to out
+int cpyheader(FILE* out, FILE* photo); // copies 54 bytes of meta data
+int* get_dimentions(FILE* photo); // gets heights and width located in the header and returns an array [width, height]
+int get_image(FILE* photo, int height, int width, px* image); // get the pixles matrix
+int cpy_image(FILE* out, px* image, int height, int width); // after applying the filter we copy the image to out
 void grayscale(int height, int width, px image[height][width]); // gray filter
 void reflect(int height, int width, px image[height][width]); // reflect filter
 void blur(int height, int width, px image[height][width]); // blur filter
-
 
 
 int main(int argc, char* argv[])
@@ -49,7 +48,13 @@ int main(int argc, char* argv[])
     }
 
 
-    cpyheader(out, photo); // copy photo header to out
+    if (cpyheader(out, photo) == 1)
+    {
+        printf("copying header error.");
+        fclose(photo);
+        fclose(out);
+        return 1;
+    }
 
     int* dim = get_dimentions(photo);
     if (dim == NULL)
@@ -65,12 +70,21 @@ int main(int argc, char* argv[])
     
     free(dim);
 
-    px* image = get_image(photo, height, width); // image is a 2d array of pixles
+    px* image = malloc(height * width * sizeof(px));
     if (image == NULL)
     {
         printf("Image error\n");
         fclose(photo);
         fclose(out);
+        return 1;
+    }
+
+    if(get_image(photo, height, width, image) == 1) // image is a 2d array of pixles
+    {
+        printf("getting image error\n");
+        fclose(photo);
+        fclose(out);
+        free(image);
         return 1;
     }
 
@@ -84,7 +98,12 @@ int main(int argc, char* argv[])
     }
     else if(argv[1][1] == 'b')
     {
-        blur(height, width, (px(*)[width]) image);
+        int b = 5; // blur_strength, increasing b makes the blur stronger 
+        for (int i = 0; i < b; i++)
+        {
+            blur(height, width, (px(*)[width]) image);
+        }
+        
     }
     else // this is redundant for now, I did it in case I wanted to add other filters in the future
     {
@@ -95,7 +114,14 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    cpy_image(out, image, height, width);
+    if (cpy_image(out, image, height, width) == 1)
+    {
+        printf("Image copying error.\n");
+        fclose(photo);
+        fclose(out);
+        free(image);
+        return 1;
+    }
     
     free(image);
     
@@ -185,6 +211,95 @@ void blur(int height, int width, px image[height][width])
     }
 
     free(tmp_1d);
-
     return;
+}
+
+
+int cpyheader(FILE* out, FILE* photo)
+{
+    unsigned char buffer[54];
+     if(fread(buffer, 54, 1, photo) != 1)
+     {
+        return 1;
+     }
+
+     if (fwrite(buffer, 54, 1, out) != 1)
+     {
+        return 1;
+     }
+     return 0;
+}
+
+
+
+int* get_dimentions(FILE* photo)
+{
+    // skipping the bitmap file headear and the first 4 bytes of the info header to get the width and height
+    int* dim = malloc(2 * sizeof(int));
+    if(dim == NULL)
+    {
+        return NULL;
+    }
+
+    fseek(photo, 18, SEEK_SET);
+    for (int i = 0; i < 2; i++)
+    {
+        if(fread(dim + i, 4, 1, photo) != 1)
+        {
+            free(dim);
+            return NULL;
+        }
+    }
+    return dim;
+}
+
+
+
+int get_image(FILE* photo, int height, int width, px* image)
+{
+    int padding = 4 - (width * 3 - 4 * floor((width*3 / 4.0)));
+    if (padding == 4)
+    {
+        padding = 0;
+    }
+    
+    for (int i = 0; i < height; i++)
+    {
+        fseek(photo, 54 + i * (width * sizeof(px) + padding), SEEK_SET);
+
+        if (fread(image + i * width, width * sizeof(px), 1, photo) != 1)
+        {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+
+
+int cpy_image(FILE* out, px* image, int height, int width)
+{
+    unsigned char buffer[] = {0, 0, 0};
+
+    int padding = 4 - (width * 3 - 4 * floor((width*3 / 4.0)));
+    if (padding == 4)
+    {
+        padding = 0;
+    }
+
+    for (int i = 0; i < height; i++)
+    {
+        unsigned char* p = buffer;
+
+        fseek(out, 54 + i * (width * sizeof(px) + padding), SEEK_SET);
+
+        if (fwrite(image + i * width, width * sizeof(px), 1, out) != 1)
+        {
+            return 1;
+        }
+        
+        fwrite(p, 1, padding, out);
+        
+    }
+    return 0;
 }
