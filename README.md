@@ -6,3 +6,6 @@ A program that applies image filters to 24-bit bitmap photos. It starts by readi
 * Averaging RGB values for the grayscale filter
 * Reversing pixel column order for thr reflection filter
 * Applying a 3x3 convolution matrix for the box blur filter
+
+## `restore`
+restore.c recovers deleted JPG photos by checking for JPG signature hexadecimal values. It works on storage devices that use 512-byte FAT file systems and store data contiguously, which is the case for most SD cards and USB flash drives.
